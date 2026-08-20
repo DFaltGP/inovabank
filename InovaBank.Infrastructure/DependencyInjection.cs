@@ -5,10 +5,12 @@ using InovaBank.Infrastructure.Persistence.Repositories;
 using InovaBank.Infrastructure.Services.Cache;
 using InovaBank.Infrastructure.Services.ReceitaWs;
 using InovaBank.Infrastructure.Services.Storage;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Polly;
+using StackExchange.Redis;
 
 namespace InovaBank.Infrastructure;
 
@@ -18,12 +20,35 @@ public static class DependencyInjection
     {
         services.AddDbContext<InovaBankDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("Postgres")));
+        
+        services.AddMassTransit(x =>
+        {
+            x.AddEntityFrameworkOutbox<InovaBankDbContext>(o =>
+            {
+                o.UsePostgres();
+                o.UseBusOutbox();
+                o.DisableInboxCleanupService();
+            });
+
+            x.AddConfigureEndpointsCallback((context, name, cfg) =>
+            {
+                cfg.UseEntityFrameworkOutbox<InovaBankDbContext>(context);
+            });
+
+            x.UsingRabbitMq((context, cfg) =>
+            {
+                cfg.Host(configuration.GetConnectionString("RabbitMq"));
+                cfg.ConfigureEndpoints(context);
+            });
+        });
 
         services.AddStackExchangeRedisCache(options =>
         {
             options.Configuration = configuration.GetConnectionString("Redis");
             options.InstanceName = "InovaBank:";
         });
+
+        services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(configuration.GetConnectionString("Redis")!));
 
         services.AddScoped<ICacheService, RedisCacheService>();
 
