@@ -4,6 +4,7 @@ using InovaBank.Infrastructure;
 using InovaBank.Infrastructure.Persistence;
 using MassTransit;
 using Microsoft.OpenApi;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,27 +14,6 @@ builder.Services.AddMediatR(cfg =>
 {
     cfg.RegisterServicesFromAssembly(typeof(InovaBank.Application.AssemblyReference).Assembly);
     cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
-});
-
-builder.Services.AddMassTransit(x =>
-{
-    x.AddEntityFrameworkOutbox<InovaBankDbContext>(o =>
-    {
-        o.UsePostgres();
-        o.UseBusOutbox();
-        o.DisableInboxCleanupService();
-    });
-
-    x.AddConfigureEndpointsCallback((context, name, cfg) =>
-    {
-        cfg.UseEntityFrameworkOutbox<InovaBankDbContext>(context);
-    });
-
-    x.UsingRabbitMq((context, cfg) =>
-    {
-        cfg.Host(builder.Configuration.GetConnectionString("RabbitMq"));
-        cfg.ConfigureEndpoints(context);
-    });
 });
 
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -57,6 +37,25 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
+    
+    try
+    {
+        var dbContext = services.GetRequiredService<InovaBankDbContext>();
+        logger.LogInformation("Verificando e aplicando migrações pendentes no banco de dados...");
+        await dbContext.Database.MigrateAsync();
+        logger.LogInformation("Migrações aplicadas com sucesso.");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Ocorreu um erro ao aplicar as migrações no banco de dados.");
+        throw;
+    }
+}
 
 if (app.Environment.IsDevelopment())
 {
