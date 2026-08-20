@@ -16,6 +16,10 @@ public sealed class AccountConfiguration : IEntityTypeConfiguration<Account>
 
         builder.HasKey(a => a.Id);
 
+        builder.Property<uint>("xmin")
+            .HasColumnType("xid")
+            .IsRowVersion();
+
         builder.HasMany(a => a.Transactions)
             .WithOne()
             .HasForeignKey(t => t.AccountId)
