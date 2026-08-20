@@ -78,8 +78,10 @@ services:
       - ConnectionStrings__MongoDb=mongodb://mongodb:27017
       - ConnectionStrings__RabbitMq=amqp://guest:guest@rabbitmq:5672
     depends_on:
-      - rabbitmq
-      - mongodb
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_started
 
 volumes:
   postgres_data:
