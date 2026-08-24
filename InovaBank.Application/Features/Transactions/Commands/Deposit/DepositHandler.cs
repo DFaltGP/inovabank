@@ -10,20 +10,29 @@ public sealed class DepositHandler(IAccountRepository _repository, IUnitOfWork _
 {
     public async Task<Result<Unit>> Handle(DepositCommand request, CancellationToken ct)
     {
-        string cacheKey = $"idempotency:deposit:{request.IdempotencyKey}";
+        string idempotencyKey = $"idempotency:deposit:{request.IdempotencyKey}";
 
-        if (await _cache.GetAsync<bool>(cacheKey, ct))
-            return Result<Unit>.Success(Unit.Value);
+        var acquired = await _cache.SetIfNotExistsAsync(idempotencyKey, true, TimeSpan.FromMinutes(2), ct);
+        
+        if (!acquired)
+            return Result<Unit>.Failure("Transação já processada ou em andamento", 409);
 
         var guidId = Guid.Parse(request.AccountId);
 
         var account = await _repository.GetByIdAsync(guidId, ct);
         if (account is null)
+        {
+            await _cache.RemoveAsync(idempotencyKey, ct);
             return Result<Unit>.Failure("Conta não encontrada.", 404);
+        }
 
         var result = account.Credit(request.Valor, request.Moeda, request.Descricao);
+
         if (result.IsFailure)
+        {
+            await _cache.RemoveAsync(idempotencyKey, ct);
             return Result<Unit>.Failure(result.Error!, result.StatusCode);
+        }
 
         var transaction = account.Transactions.Last();
 
@@ -39,7 +48,7 @@ public sealed class DepositHandler(IAccountRepository _repository, IUnitOfWork _
 
         await _unityOfWork.SaveChangesAsync(ct);
 
-        await _cache.SetAsync(cacheKey, true, TimeSpan.FromHours(24), ct);
+        await _cache.SetAsync(idempotencyKey, true, TimeSpan.FromHours(24), ct);
 
         return Result<Unit>.Success(Unit.Value);
     }
