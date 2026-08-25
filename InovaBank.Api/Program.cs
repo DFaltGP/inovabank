@@ -2,7 +2,6 @@ using FluentValidation;
 using InovaBank.Application.Behaviors;
 using InovaBank.Infrastructure;
 using InovaBank.Infrastructure.Persistence;
-using MassTransit;
 using Microsoft.OpenApi;
 using Microsoft.EntityFrameworkCore;
 
@@ -42,7 +41,7 @@ using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     var logger = services.GetRequiredService<ILogger<Program>>();
-    
+
     try
     {
         var dbContext = services.GetRequiredService<InovaBankDbContext>();
