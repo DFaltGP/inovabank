@@ -10,21 +10,25 @@ public sealed class TransferHandler(IAccountRepository _repository, IUnitOfWork 
 {
     public async Task<Result<Unit>> Handle(TransferCommand request, CancellationToken ct)
     {
-        var cacheKey = $"idempotency:transfer:{request.IdempotencyKey}";
+        var idempotencyKey = $"idempotency:transfer:{request.IdempotencyKey}";
 
-        if (await _cache.GetAsync<bool>(cacheKey, ct))
-            return Result<Unit>.Success(Unit.Value);
+        var acquired = await _cache.SetIfNotExistsAsync(idempotencyKey, true, TimeSpan.FromMinutes(2), ct);
+
+        if (!acquired)
+            return Result<Unit>.Failure("Transação já processada ou em andamento", 409);
 
         var sourceGuidId = Guid.Parse(request.SourceAccountId);
         var destGuidId = Guid.Parse(request.DestinationAccountId);
 
-        var source = await _repository.GetByIdAsync(sourceGuidId, ct);
-        if (source is null)
-            return Result<Unit>.Failure("Conta de origem não encontrada.", 404);
+        var ids = new[] { sourceGuidId, destGuidId }.OrderBy(id => id).ToArray();
 
-        var destination = await _repository.GetByIdAsync(destGuidId, ct);
-        if (destination is null)
-            return Result<Unit>.Failure("Conta de destino não encontrada.", 404);
+        var firstAccount = await _repository.GetByIdForUpdateAsync(sourceGuidId, ct);
+        var secondAccount = await _repository.GetByIdForUpdateAsync(destGuidId, ct);
+        if (firstAccount is null || secondAccount is null)
+            return Result<Unit>.Failure("Uma ou ambas as contas não foram encontradas.", 404);
+
+        var source = sourceGuidId == firstAccount.Id ? firstAccount : secondAccount;
+        var destination = destGuidId == firstAccount.Id ? firstAccount : secondAccount;
 
         if (!source.CanPerformTransactions || !destination.CanPerformTransactions)
             return Result<Unit>.Failure("Ambas as contas devem estar ativas para realizar transferências.", 422);
@@ -50,8 +54,6 @@ public sealed class TransferHandler(IAccountRepository _repository, IUnitOfWork 
         ), ct);
 
         await _unityOfWork.SaveChangesAsync(ct);
-
-        await _cache.SetAsync(cacheKey, true, TimeSpan.FromHours(24), ct);
 
         return Result<Unit>.Success(Unit.Value);
     }
