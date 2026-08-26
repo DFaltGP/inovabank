@@ -10,6 +10,14 @@ public sealed class AccountRepository(InovaBankDbContext context) : IAccountRepo
     public async Task<Account?> GetByIdAsync(Guid id, CancellationToken ct) =>
         await context.Accounts.FirstOrDefaultAsync(a => a.Id == id, ct);
 
+    public async Task<Account?> GetByIdForUpdateAsync(Guid id, CancellationToken ct)
+    {
+        return await context.Accounts
+            .FromSqlInterpolated($"SELECT * FROM \"Accounts\" WHERE \"Id\" = {id} FOR UPDATE")
+            .Include(a => a.Transactions)
+            .FirstOrDefaultAsync(ct);
+    }
+
     public async Task AddAsync(Account account, CancellationToken ct) =>
         await context.Accounts.AddAsync(account, ct);
 
