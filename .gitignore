@@ -3,4 +3,4 @@
 **/.zed
 **/.vs
 **/.vscode
-setup.sh
+*.sh
