@@ -1,7 +1,9 @@
 namespace InovaBank.Domain.Events.Accounts;
 
 public sealed record AccountCreatedEvent(
-    Guid Id,
+    Guid AccountId,
     string Cnpj,
     string Agencia,
-    string RazaoSocial);
+    string RazaoSocial,
+    string ImagemDocumentoPath,
+    DateTime CreatedAt);

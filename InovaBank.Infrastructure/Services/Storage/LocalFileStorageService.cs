@@ -20,4 +20,17 @@ public sealed class LocalFileStorageService : IFileStorageService
 
         return $"{StorageFolder}/{fileName}";
     }
+
+    public Task DeleteAsync(string filePath, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+            return Task.CompletedTask;
+
+        var fullPath = Path.Combine(Directory.GetCurrentDirectory(), filePath);
+
+        if (File.Exists(fullPath))
+            File.Delete(fullPath);
+
+        return Task.CompletedTask;
+    }
 }

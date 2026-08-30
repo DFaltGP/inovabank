@@ -1,7 +1,9 @@
 using InovaBank.Domain.Entities;
+using InovaBank.Domain.Events.Accounts;
 using InovaBank.Domain.Interfaces;
 using InovaBank.Domain.Primitives;
 using InovaBank.Domain.ValueObjects;
+using MassTransit;
 using MediatR;
 
 namespace InovaBank.Application.Features.Accounts.Commands.OpenAccount;
@@ -10,6 +12,7 @@ public sealed class OpenAccountHandler(
     IAccountRepository _repository,
     IReceitaWsService _receitaService,
     IFileStorageService _fileStorageService,
+    IPublishEndpoint _publishEndpoint,
     IUnitOfWork _unitOfWork) : IRequestHandler<OpenAccountCommand, Result<Guid>>
 {
     public async Task<Result<Guid>> Handle(OpenAccountCommand request, CancellationToken ct)
@@ -32,8 +35,26 @@ public sealed class OpenAccountHandler(
             imagePath);
 
         await _repository.AddAsync(account, ct);
-        await _unitOfWork.SaveChangesAsync(ct);
+
+        await _publishEndpoint.Publish(new AccountCreatedEvent(
+            account.Id,
+            account.Cnpj.Number,
+            account.Agencia,
+            account.RazaoSocial,
+            imagePath,
+            DateTime.UtcNow
+        ), ct);
+
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+        catch
+        {
+            await _fileStorageService.DeleteAsync(imagePath, ct);
+            throw;
+        }
 
         return Result<Guid>.Created(account.Id);
-    }
+        }
 }
