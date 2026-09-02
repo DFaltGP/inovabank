@@ -1,4 +1,4 @@
-namespace InovaBank.Application.Features.Accounts.Queries.Common;
+namespace InovaBank.Domain.Common;
 
 public static class AccountMapper
 {
