@@ -56,5 +56,5 @@ public sealed class OpenAccountHandler(
         }
 
         return Result<Guid>.Created(account.Id);
-        }
+    }
 }

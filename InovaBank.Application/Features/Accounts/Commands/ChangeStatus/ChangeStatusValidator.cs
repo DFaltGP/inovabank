@@ -12,8 +12,7 @@ public sealed class ChangeStatusValidator : AbstractValidator<ChangeStatusComman
             .Must(BeAValidGuid).WithMessage("O formato do ID fornecido é inválido.");
 
         RuleFor(x => x.Status)
-            .NotEmpty().WithMessage("O status é obrigatório.")
-            .Must(s => Enum.TryParse<AccountStatus>(s, true, out _))
+            .IsEnumName(typeof(AccountStatus), caseSensitive: false).NotEqual(AccountStatus.Encerrada.ToString())
             .WithMessage("Status inválido. Use 'Ativa' ou 'Bloqueada'.");
     }
 
