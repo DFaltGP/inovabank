@@ -1,4 +1,4 @@
-using InovaBank.Application.Features.Accounts.Queries.Common;
+using InovaBank.Domain.Common;
 using InovaBank.Domain.Primitives;
 using MediatR;
 
