@@ -10,6 +10,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Polly;
+using Polly.Extensions.Http;
+using Polly.Timeout;
 using StackExchange.Redis;
 
 namespace InovaBank.Infrastructure;
@@ -20,7 +22,7 @@ public static class DependencyInjection
     {
         services.AddDbContext<InovaBankDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("Postgres")));
-        
+
         services.AddMassTransit(x =>
         {
             x.AddEntityFrameworkOutbox<InovaBankDbContext>(o =>
@@ -54,10 +56,22 @@ public static class DependencyInjection
 
         services.AddHttpClient<IReceitaWsService, ReceitaWsService>(client =>
         {
-            client.BaseAddress = new Uri("https://receitaws.com.br/");
-        }).
-        AddTransientHttpErrorPolicy(p =>
-              p.WaitAndRetryAsync(3, _ => TimeSpan.FromSeconds(2)));
+            client.BaseAddress = new Uri("https://receitaws.com.br/v1/cnpj/");
+        })
+        .AddPolicyHandler(
+            HttpPolicyExtensions
+                .HandleTransientHttpError()
+                .Or<TimeoutRejectedException>()
+                .Or<TaskCanceledException>()
+                .CircuitBreakerAsync(
+                    handledEventsAllowedBeforeBreaking: 3,
+                    durationOfBreak: TimeSpan.FromSeconds(15))
+        )
+        .AddPolicyHandler(
+            HttpPolicyExtensions
+                .HandleTransientHttpError()
+                .WaitAndRetryAsync(2, retryAttempt => TimeSpan.FromSeconds(1))
+        );
 
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<InovaBankDbContext>());
 

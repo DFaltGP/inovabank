@@ -4,8 +4,22 @@ using InovaBank.Infrastructure;
 using InovaBank.Infrastructure.Persistence;
 using Microsoft.OpenApi;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
+using InovaBank.Api.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, configuration) =>
+{
+    configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .Enrich.FromLogContext()
+        .Enrich.WithProperty("Application", "InovaBank.Api")
+        .WriteTo.Console();
+});
+
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
 
 builder.Services.AddValidatorsFromAssembly(typeof(InovaBank.Application.AssemblyReference).Assembly);
 
@@ -65,6 +79,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseSerilogRequestLogging();
+
+app.UseExceptionHandler();
 
 app.MapControllers();
 
