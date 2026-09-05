@@ -6,6 +6,11 @@ using Microsoft.OpenApi;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using InovaBank.Api.Middlewares;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using HealthChecks.UI.Client;
+using InovaBank.Infrastructure.Persistence.MongoDb;
+using MassTransit;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,6 +54,17 @@ builder.Services.AddSwaggerGen(options =>
     options.IncludeXmlComments(xmlPath);
 });
 
+builder.Services.Configure<MassTransitHostOptions>(options =>
+{
+    options.WaitUntilStarted = true;
+});
+
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"])
+    .AddDbContextCheck<InovaBankDbContext>(name: "postgres_ef", failureStatus: HealthStatus.Unhealthy, tags: ["ready"])
+    .AddRedis(builder.Configuration.GetConnectionString("Redis")!, name: "redis", failureStatus: HealthStatus.Degraded, tags: ["ready"])
+    .AddMongoDb(clientFactory: sp => sp.GetRequiredService<MongoContext>().Client, name: "mongodb", failureStatus: HealthStatus.Degraded, tags: ["ready"]);
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -85,5 +101,16 @@ app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
 
 app.MapControllers();
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live")
+});
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
 
 app.Run();
