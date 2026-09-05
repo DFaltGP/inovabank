@@ -56,7 +56,7 @@ public static class DependencyInjection
 
         services.AddHttpClient<IReceitaWsService, ReceitaWsService>(client =>
         {
-            client.BaseAddress = new Uri("https://receitaws.com.br/v1/cnpj/");
+            client.BaseAddress = new Uri("https://receitaws.com.br/");
         })
         .AddPolicyHandler(
             HttpPolicyExtensions

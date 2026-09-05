@@ -23,10 +23,9 @@ public sealed class AccountsController(IMediator _mediator) : ApiControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(ApiResponse<Guid>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Create([FromBody] OpenAccountRequest request)
+    public async Task<IActionResult> Create([FromBody] OpenAccountCommand request)
     {
-        var command = new OpenAccountCommand(request.Cnpj, request.Agencia, request.ImagemDocumento);
-        var result = await _mediator.Send(command);
+        var result = await _mediator.Send(request);
 
         return HandleResult(result);
     }
@@ -35,9 +34,9 @@ public sealed class AccountsController(IMediator _mediator) : ApiControllerBase
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(ApiResponse<Account>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetById([FromRoute] string id)
+    public async Task<IActionResult> GetById([FromRoute] GetAccountByIdQuery request)
     {
-        var result = await _mediator.Send(new GetAccountByIdQuery(id));
+        var result = await _mediator.Send(request);
         return HandleResult(result);
     }
 
@@ -55,10 +54,9 @@ public sealed class AccountsController(IMediator _mediator) : ApiControllerBase
     [HttpGet("{id}/balance")]
     [ProducesResponseType(typeof(ApiResponse<BalanceReadModel>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetBalance([FromRoute] string id)
+    public async Task<IActionResult> GetBalance([FromRoute] GetBalanceQuery request)
     {
-        var result = await _mediator.Send(new GetBalanceQuery(id));
-
+        var result = await _mediator.Send(request);
         return HandleResult(result);
     }
 
@@ -66,17 +64,18 @@ public sealed class AccountsController(IMediator _mediator) : ApiControllerBase
     [HttpGet("{id}/statement")]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<StatementReadModel>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetStatement(
-        [FromRoute] string id,
-        [FromQuery] DateTime? dataInicio,
-        [FromQuery] DateTime? dataFim,
-        [FromQuery] string? tipo,
-        [FromQuery] int pagina = 1,
-        [FromQuery] int tamanhoPagina = 20)
+    public async Task<IActionResult> GetStatement([FromRoute] string id, [FromQuery] GetStatementRequest filters)
     {
-        var query = new GetStatementQuery(id, dataInicio, dataFim, tipo, pagina, tamanhoPagina);
-        var result = await _mediator.Send(query);
+        var query = new GetStatementQuery(
+            id,
+            filters.DataInicio,
+            filters.DataFim,
+            filters.Tipo,
+            filters.Pagina,
+            filters.TamanhoPagina
+        );
 
+        var result = await _mediator.Send(query);
         return HandleResult(result);
     }
 
@@ -84,7 +83,7 @@ public sealed class AccountsController(IMediator _mediator) : ApiControllerBase
     [HttpPatch("{id}/status")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> ChangeStatus(string id, [FromBody] ChangeStatusRequest request)
+    public async Task<IActionResult> ChangeStatus([FromRoute] string id, [FromBody] ChangeStatusRequest request)
     {
         var result = await _mediator.Send(new ChangeStatusCommand(id, request.Status));
         return HandleResult(result);
@@ -94,9 +93,9 @@ public sealed class AccountsController(IMediator _mediator) : ApiControllerBase
     [HttpDelete("{id}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Close(string id)
+    public async Task<IActionResult> Close([FromRoute] CloseAccountCommand request)
     {
-        var result = await _mediator.Send(new CloseAccountCommand(id));
+        var result = await _mediator.Send(request);
         return HandleResult(result);
     }
 
@@ -104,7 +103,7 @@ public sealed class AccountsController(IMediator _mediator) : ApiControllerBase
     [HttpPost("{id}/deposit")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Deposit(string id, [FromBody] DepositRequest request)
+    public async Task<IActionResult> Deposit([FromRoute] string id, [FromBody] DepositRequest request)
     {
         var command = new DepositCommand(
             id,
@@ -121,7 +120,7 @@ public sealed class AccountsController(IMediator _mediator) : ApiControllerBase
     [HttpPost("{id}/withdraw")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Withdraw(string id, [FromBody] WithdrawRequest request)
+    public async Task<IActionResult> Withdraw([FromRoute] string id, [FromBody] WithdrawRequest request)
     {
         var command = new WithdrawCommand(
             id,
@@ -138,7 +137,7 @@ public sealed class AccountsController(IMediator _mediator) : ApiControllerBase
     [HttpPost("{id}/transfer")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Transfer(string id, [FromBody] TransferRequest request)
+    public async Task<IActionResult> Transfer([FromRoute] string id, [FromBody] TransferRequest request)
     {
         var command = new TransferCommand(
             id,
