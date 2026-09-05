@@ -2,6 +2,7 @@ services:
   postgres:
     image: postgres:17-alpine
     container_name: inovabank-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: InovaBankDb
       POSTGRES_USER: admin
@@ -10,18 +11,32 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d InovaBankDb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   mongodb:
     image: mongo:latest
     container_name: inovabank-mongodb
+    restart: unless-stopped
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --eval 'db.adminCommand(\"ping\")' --quiet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: inovabank-rabbitmq
+    restart: unless-stopped
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -32,12 +47,20 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 20s
 
   redis:
     image: redis:7-alpine
     container_name: inovabank-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
   api:
     build:
@@ -46,6 +69,7 @@ services:
       args:
         PROJECT_PATH: InovaBank.Api
     container_name: inovabank-api
+    restart: unless-stopped
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
@@ -56,15 +80,21 @@ services:
       - ConnectionStrings__RabbitMq=amqp://guest:guest@rabbitmq:5672
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health/live || wget --no-verbose --tries=1 --spider http://localhost:8080/health/live || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
       mongodb:
-        condition: service_started
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
 
   worker:
     build:
@@ -73,6 +103,7 @@ services:
       args:
         PROJECT_PATH: InovaBank.Worker
     container_name: inovabank-worker
+    restart: unless-stopped
     environment:
       - PROJECT_DLL=InovaBank.Worker.dll
       - ConnectionStrings__MongoDb=mongodb://mongodb:27017
@@ -81,7 +112,7 @@ services:
       rabbitmq:
         condition: service_healthy
       mongodb:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   postgres_data:
