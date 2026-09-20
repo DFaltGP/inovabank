@@ -3,5 +3,6 @@
   <Project Path="InovaBank.Application/InovaBank.Application.csproj" />
   <Project Path="InovaBank.Domain/InovaBank.Domain.csproj" />
   <Project Path="InovaBank.Infrastructure/InovaBank.Infrastructure.csproj" />
+  <Project Path="InovaBank.UnitTests/InovaBank.UnitTests.csproj" />
   <Project Path="InovaBank.Worker/InovaBank.Worker.csproj" />
 </Solution>
